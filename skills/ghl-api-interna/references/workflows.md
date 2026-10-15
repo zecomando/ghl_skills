@@ -7,7 +7,7 @@ Base: `https://backend.leadconnectorhq.com/workflow`. Headers e token: ver
 
 | Operação | Método e caminho |
 |---|---|
-| Listar | `GET /{loc}/list` → `{count, rows[]}` |
+| Listar | `GET /{loc}/list` → `{count, rows[], isLocationRateLimited}` (parâmetros desconhecidos são ignorados — medido 2026-10-15) |
 | **Definição completa** | `GET /{loc}/{workflowId}` |
 | **Triggers** (recurso à parte!) | `GET /{loc}/trigger?workflowId={id}` |
 | Editar trigger | `PUT /{loc}/trigger/{triggerId}` |
@@ -109,7 +109,8 @@ enganam:
     (`"Queued to copy Workflow"`); dentro da mesma location não produziu nada.
 13. **A listagem mistura pastas com workflows.** As pastas dão 404 no GET da
     definição e parecem falhas de leitura. Filtrar `type === 'workflow'` ou
-    pedir `?type=workflow` (numa conta medida, ~15% das linhas eram pastas).
+    pedir `?type=workflow`. As pastas vêm com `type: "directory"` (medido
+    2026-10-15: sem o filtro, quase metade das primeiras 100 linhas eram pastas).
 14. ⛔ **A condição `message.type` de um trigger `customer_reply` NÃO apanha um
     gateway externo — com valor nenhum.** As mensagens de um provider custom
     entram como `type: 20` (`TYPE_CUSTOM_SMS`), mas um trigger com

@@ -98,21 +98,56 @@ export function criarClienteOficial({
 // Cada uma codifica uma armadilha medida. Ver a skill ghl-api-oficial.
 
 /**
- * Contacto por id. O endpoint NAO aceita filtro locationId (da 422), por isso
- * filtra-se a resposta: um contacto de outra sub-conta nao pode parecer nosso.
+ * Contacto por id. O endpoint ignora um `?locationId=` (medido 2026-10-15:
+ * devolve o contacto mesmo com outra location no parametro), por isso filtra-se
+ * a resposta: um contacto de outra sub-conta nao pode parecer nosso.
+ *
+ * A leitura por id OMITE `dnd` e `dndSettings` quando nunca foram definidos
+ * (medido 2026-10-15, em v3, 2023-02-21, 2021-07-28 e 2021-04-15; com DND
+ * activo os campos vem). Sem eles nao se distingue "sem DND" de
+ * "desconhecido": com `comDnd` (omissao), o estado vem da pesquisa (`lerDnd`).
+ * Se a pesquisa falhar, o contacto fica desconhecido — e desconhecido bloqueia.
  */
-export async function lerContacto(cliente, id) {
+export async function lerContacto(cliente, id, { comDnd = true } = {}) {
   const dados = await cliente.get(`/contacts/${encodeURIComponent(id)}`);
   const contacto = dados?.contact ?? dados;
   if (contacto?.locationId && contacto.locationId !== cliente.locationId) {
     throw new Error(`O contacto ${id} e da location ${contacto.locationId}, nao da ${cliente.locationId}. Ignorado.`);
   }
+  if (comDnd && contacto && !('dnd' in contacto) && !('dndSettings' in contacto)) {
+    try {
+      const dnd = await lerDnd(cliente, id);
+      if (dnd) Object.assign(contacto, dnd);
+    } catch {
+      // a pesquisa falhou: fica desconhecido, que bloqueia — nunca "sem DND"
+    }
+  }
   return contacto;
 }
 
 /**
+ * O estado de DND de um contacto, pela pesquisa — o unico caminho medido que o
+ * devolve para um contacto concreto (2026-10-15). `POST /contacts/search` e uma
+ * LEITURA apesar do metodo. Devolve { dnd, dndSettings } so com os campos que
+ * vieram, ou null se a pesquisa nao encontrou o contacto.
+ */
+export async function lerDnd(cliente, id) {
+  const dados = await cliente.post('/contacts/search', {
+    leitura: true,
+    versao: VERSAO.PADRAO,
+    corpo: { locationId: cliente.locationId, page: 1, pageLimit: 1, filters: [{ field: 'id', operator: 'eq', value: id }] },
+  });
+  const c = (dados?.contacts ?? []).find((x) => x?.id === id);
+  if (!c) return null;
+  const dnd = {};
+  if ('dnd' in c) dnd.dnd = c.dnd;
+  if ('dndSettings' in c) dnd.dndSettings = c.dndSettings;
+  return dnd;
+}
+
+/**
  * Contacto por telefone (lookup canonico). Devolve um contacto "slim" — sem
- * dnd/dndSettings — por isso relemos por id quando encontra.
+ * dnd/dndSettings — por isso rele-se (por id + pesquisa) quando encontra.
  */
 export async function procurarPorTelefone(cliente, telefone) {
   const dados = await cliente.get('/contacts/search/duplicate', {

@@ -31,3 +31,10 @@ test('classificar: 401/403 e token, o resto e pedido', () => {
   assert.ok(classificar(404, 'x') instanceof ErroPedido);
   assert.match(explicar(classificar(422, 'x')), /autenticacao passou/);
 });
+
+test('401 "version header was not found." nao e problema de token', () => {
+  const e = classificar(401, 'version header was not found.');
+  assert.ok(e instanceof ErroPedido);
+  assert.match(e.dica(), /Falta o header Version/);
+  assert.ok(classificar(401, 'Invalid JWT') instanceof ErroAuth);
+});

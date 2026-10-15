@@ -57,10 +57,10 @@ oficial") — com as mesmas armadilhas.
 |---|---|---|---|
 | Ler contacto por id / telefone | ✅ `GET /contacts/{id}`, `search/duplicate` | | ✅ |
 | Criar/actualizar contacto | 🟡 só `POST /contacts/upsert` — `POST /contacts/` dá 400 com duplicados bloqueados | | ✅ |
-| Pesquisa livre de contactos | 🟡 `POST /contacts/search` existe mas a gramática do corpo é pouco documentada; usar `search/duplicate` por telefone | | ✅ |
+| Pesquisa de contactos | ✅ `POST /contacts/search` com `filters` (por id, telefone, …) — medido 2026-10-15; por telefone também `search/duplicate` | | ✅ |
 | Tags no contacto | ✅ por **nome** (não id) | | ✅ |
 | Notas | ✅ `POST /contacts/{id}/notes` | | ✅ |
-| DND por canal | 🟡 só `dndSettings` por canal; o booleano `dnd` reverte-se sozinho | | ✅ |
+| DND por canal | 🟡 lê-se pela pesquisa (a leitura por id omite-o quando nunca foi definido); escreve-se em `dndSettings` por canal; o booleano `dnd` reverte-se sozinho | | ✅ |
 | Campos personalizados: ler catálogo | ✅ `GET /locations/{id}/customFields` | | ✅ |
 | Campos personalizados: escrever no contacto | ✅ via upsert `{customFields:[{id,field_value}]}` | | ✅ |
 | Custom values (da location) | ❌ | 🟡 `locations/{id}/customValues` | ✅ Settings → Custom Values |
@@ -133,7 +133,8 @@ oficial") — com as mesmas armadilhas.
 ## Como ler este mapa
 
 Cada "medido" vem de uso real numa conta de produção, com datas de 2026
-indicadas nas skills de detalhe. **Se algo aqui parecer errado: medir outra
+indicadas nas skills de detalhe. Última verificação numa conta real, só com
+leituras: 2026-10-15. **Se algo aqui parecer errado: medir outra
 vez e corrigir o documento, com a medição e a data.** O maior inimigo desta
 base de conhecimento é uma afirmação que era verdade há seis meses — várias
 sobreviveram meses sem tráfego que as contrariasse.

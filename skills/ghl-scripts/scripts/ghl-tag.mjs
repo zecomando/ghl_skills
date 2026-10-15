@@ -36,7 +36,7 @@ await correrCli(async () => {
   const temTag = (c) => (c?.tags ?? []).map((t) => String(t).toLowerCase()).includes(alvo);
 
   // 1 + 2
-  const contacto = garantirDaLocation(await lerContacto(cliente, id), loc, `contacto ${id}`);
+  const contacto = garantirDaLocation(await lerContacto(cliente, id, { comDnd: false }), loc, `contacto ${id}`);
   console.log(`Contacto ${id}: tags actuais = ${(contacto.tags ?? []).join(', ') || '(nenhuma)'}`);
 
   // 3
@@ -56,7 +56,7 @@ await correrCli(async () => {
   }
 
   // 5
-  const depois = await lerContacto(cliente, id);
+  const depois = await lerContacto(cliente, id, { comDnd: false });
   if (adicionar === temTag(depois)) {
     console.log(`VERIFICADO por releitura: a tag "${nome}" ${adicionar ? 'esta' : 'ja nao esta'} no contacto.`);
   } else {

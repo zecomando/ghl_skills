@@ -88,8 +88,13 @@ lê-se das claims do próprio token.
 - **Qualquer outra coisa, incluindo 422** — a autenticação **passou**; o pedido
   é que está mal formado. Não mexer no token.
 
-Isto custou tempo real: a API devolve `422 {"message":["property skip should
-not exist"]}` para query params que não conhece, em vez de os ignorar.
+Excepção, na API oficial: `401 "version header was not found."` é falta do
+header `Version`, não do token (medido 2026-10-15).
+
+Isto custou tempo real: muitos endpoints da API oficial devolvem
+`422 {"message":["property skip should not exist"]}` para query params que
+não conhecem, em vez de os ignorar (a API interna, no `/list`, ignora-os —
+medido 2026-10-15).
 Confundir isso com falha de autenticação leva a caçar o token errado durante
 horas.
 

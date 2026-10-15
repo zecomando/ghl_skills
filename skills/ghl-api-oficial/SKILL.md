@@ -42,19 +42,27 @@ Documentação oficial: <https://marketplace.gohighlevel.com/docs/>.
 
 ## O header `Version` — enviar sempre um
 
+⚠️ **Sem ele, a resposta é `401 "version header was not found."`** — com um
+token perfeitamente bom (medido 2026-10-15 em locations, tags, pipelines,
+calendars e contacts; só o `free-slots` aceitou sem header). É a excepção à
+regra "401 = token".
+
 A documentação oficial (2026) lista `v3` (lançado a 2026-06-11),
 `2023-02-21`, `2021-07-28` e `2021-04-15`, e recomenda `v3` por omissão. Em
-produção, a matriz que funcionou foi esta — e enviar o "errado" **não dá
-erro**: pode dar 200 com um corpo de forma diferente:
+produção, a matriz usada foi esta:
 
-| `Version` | Endpoints (medido) |
+| `Version` | Endpoints |
 |---|---|
 | `2021-07-28` | oportunidades, tags e campos da location, inscrição em workflow, locations, users |
 | `v3` | contactos (CRUD), `/calendars/events/appointments`, conversas |
 | `2021-04-15` | `/calendars/{id}/free-slots`, `/calendars/events` (listagem) |
 
-Omitido tem comportamento não documentado. Ao mudar de versão num endpoint,
-comparar a forma da resposta antes de confiar nela.
+Numa verificação só de leitura a 2026-10-15, `v3`, `2021-07-28` e
+`2021-04-15` devolveram **a mesma forma** em `GET /contacts/{id}`, listagem de
+contactos, `free-slots`, `/calendars/events` e `conversations/search`. Se
+houver diferenças de forma entre versões, estarão nas escritas (não medidas):
+ao mudar de versão num endpoint de escrita, comparar a resposta antes de
+confiar nela.
 
 ## Rate limit
 
@@ -62,9 +70,11 @@ comparar a forma da resposta antes de confiar nela.
   recurso (location ou empresa)** — partilhado com tudo o mais que toca na
   mesma location (cenários Make, outras integrações). Correr deliberadamente
   abaixo (o kit usa 80/10 s), não no tecto.
-- Headers de uso: `X-RateLimit-Max`, `X-RateLimit-Remaining`,
-  `X-RateLimit-Interval-Milliseconds`, `X-RateLimit-Limit-Daily`,
-  `X-RateLimit-Daily-Remaining`.
+- Headers de uso (confirmados 2026-10-15): `X-RateLimit-Max`,
+  `X-RateLimit-Remaining`, `X-RateLimit-Interval-Milliseconds`,
+  `X-RateLimit-Limit-Daily`, `X-RateLimit-Daily-Remaining`,
+  `X-RateLimit-Daily-Reset`. O "restante do dia" mostra o consumo de todas as
+  integrações da location, não só o teu.
 - 503 esporádicos existem. Repetir com backoff em **429 e 5xx**, nunca noutro
   4xx.
 - ⚠️ **POST não é repetível por omissão.** Um 503 depois de a linha criada é
@@ -81,7 +91,10 @@ O essencial:
 
 - **Contactos:** escrever por `POST /contacts/upsert` (o `POST /contacts/` dá
   400 quando a location bloqueia duplicados). `GET /contacts/{id}` não filtra
-  por location — conferir o `locationId` da resposta. Lookup por telefone:
+  por location (ignora `?locationId=`) — conferir o `locationId` da resposta —
+  e **omite o DND quando nunca foi definido** (medido 2026-10-15) — sem os
+  campos não se distingue "sem DND" de "desconhecido"; a pesquisa
+  (`POST /contacts/search` filtrando por id) devolve-os sempre. Lookup por telefone:
   `GET /contacts/search/duplicate` com o `+` codificado. Tags por **nome**.
   DND por canal em `dndSettings`.
 - **Telefones:** nunca concatenar prefixo; validar E.164 e recusar o resto.
@@ -121,10 +134,14 @@ OAuth só as sub-contas necessárias — a autorização é a fronteira.
 TUDO O RESTO, 422 incluído = a autenticação passou; o pedido está mal formado.
 ```
 
-O GHL responde **422 a query params que não conhece** em vez de os ignorar
-(`{"message":["property skip should not exist"]}`), e endpoints do mesmo
-serviço discordam sobre quais aceitam. Tratar 422 como falha de autenticação
-manda rodar um token perfeitamente bom.
+**Excepção medida (2026-10-15):** `401 "version header was not found."` é
+falta do header `Version`, não do token.
+
+Muitos endpoints respondem **422 a query params que não conhecem** em vez de
+os ignorar (`{"message":["property skip should not exist"]}` — medido
+2026-10-15 em `/contacts/`, `/calendars/` e `/opportunities/pipelines`), e
+endpoints do mesmo serviço discordam: `/locations/{id}/tags` ignora-os.
+Tratar 422 como falha de autenticação manda rodar um token perfeitamente bom.
 
 ## O que a API oficial NÃO faz
 

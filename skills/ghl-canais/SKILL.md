@@ -20,7 +20,10 @@ pode fazer e onde a plataforma mente.
 - **Um contacto sem `dnd` nem `dndSettings` no payload é desconhecido — e
   desconhecido bloqueia** o envio; nunca assumir consentimento.
   `GET /contacts/search/duplicate` devolve um contacto "slim" sem os dois
-  campos: reler por id antes de decidir.
+  campos, e a leitura por id omite-os quando nunca foram definidos (medido
+  2026-10-15): para distinguir "sem DND" de "desconhecido", ler o DND pela
+  pesquisa (`POST /contacts/search` filtrando por id — ver
+  `ghl-api-oficial`).
 - Se o opt-out usa uma tag (ex.: `nao_ligar`), confirmar que a tag existe — numa
   conta medida não existia e só foi criada na primeira utilização.
 - **Telefone: nunca concatenar prefixo.** Ler o valor, validar E.164

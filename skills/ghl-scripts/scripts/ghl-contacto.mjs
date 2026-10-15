@@ -9,8 +9,9 @@
  * - o telefone tem de vir em E.164; nunca se concatena prefixo (um
  *   "+351{{contact.phone}}" produziu "+351+351..." em dezenas de passos);
  * - o `+` vai percent-encoded na query (colado a mao vira espaco);
- * - `search/duplicate` devolve um contacto "slim" sem dnd/dndSettings —
- *   rele-se por id para o estado de DND ser real;
+ * - `search/duplicate` devolve um contacto "slim" sem dnd/dndSettings, e a
+ *   leitura por id omite-os quando nunca foram definidos (medido 2026-10-15):
+ *   o DND completa-se pela pesquisa (POST /contacts/search filtrando por id);
  * - `GET /contacts/{id}` nao filtra por location: confere-se na resposta.
  */
 

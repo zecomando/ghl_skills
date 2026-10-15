@@ -36,14 +36,16 @@ diz o que falta e como se obtém, sem escrever nada.
 | Comando | O que faz | Escreve? |
 |---|---|---|
 | `ghl-verificar.mjs` | Node, `.env`, PIT (lê a sub-conta), sessão da API interna, allowlist | não |
-| `ghl-contacto.mjs --telefone=+351… \| --id=…` | contacto com DND real por canal (relê o "slim"), avisa se o telefone não é E.164 | não |
+| `ghl-contacto.mjs --telefone=+351… \| --id=…` | contacto com o DND real por canal (completado pela pesquisa quando a leitura por id o omite) e aviso se o telefone não é E.164 | não |
 | `ghl-pipelines.mjs [--stage=<id>]` | pipelines e stages; `--stage` diz o dono ou acusa **órfão** | não |
 | `ghl-tag.mjs --contacto=<id> --adicionar=… \| --remover=…` | o exemplo completo de escrita segura: confere a location pelo servidor, idempotente, relê e confirma | só com `--executar` |
 | `ghl-workflows-exportar.mjs [--saida=ghl-export]` | todos os workflows + triggers + `inventario.md` (os exports trazem segredos: fora do Git) | não |
 | `ghl-workflow-republicar.mjs --workflow=<id> --esperado="…"` | confere o texto no **ficheiro do motor** (`fileUrl`) e republica se ficou para trás | só com `--executar` |
 
 Todos aceitam `--json` onde faz sentido e devolvem código de saída ≠ 0 quando
-algo falhou ou não se confirmou.
+algo falhou ou não se confirmou. Verificados numa conta real a 2026-10-15, só
+com leituras e simulação: os seis correram sem erros (centenas de workflows
+exportados, zero falhas).
 
 ## Convenções não negociáveis
 
@@ -84,7 +86,7 @@ impede um PUT de aterrar na conta de um cliente — responde 200 na mesma.
 ```js
 import { carregarEnv, exigir, argumentos, correrCli, E164 } from './lib/config.mjs';
 import { guardaDoArgv, garantirDaLocation } from './lib/guarda.mjs';
-import { criarClienteOficial, lerContacto, procurarPorTelefone, listarPipelines, dndPorCanal } from './lib/oficial.mjs';
+import { criarClienteOficial, lerContacto, lerDnd, procurarPorTelefone, listarPipelines, dndPorCanal } from './lib/oficial.mjs';
 import { obterTokenSessao } from './lib/sessao.mjs';
 import { criarClienteInterno, corpoPreservado, ordenarPorRamo, lerFicheiroDoMotor } from './lib/interna.mjs';
 ```

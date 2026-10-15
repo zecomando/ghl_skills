@@ -5,6 +5,7 @@ import {
   criarClienteOficial,
   dndPorCanal,
   lerContacto,
+  lerDnd,
   listarPipelines,
   procurarPorTelefone,
   versaoPara,
@@ -30,7 +31,7 @@ test('versaoPara segue a matriz medida', () => {
 
 test('o cliente envia Authorization e o Version certo', async () => {
   const f = fetchFalso([resposta(200, { contact: { id: 'c1', locationId: 'L1' } })]);
-  const c = await lerContacto(cliente(f), 'c1');
+  const c = await lerContacto(cliente(f), 'c1', { comDnd: false });
   assert.equal(c.id, 'c1');
   assert.equal(f.chamadas[0].headers.Authorization, 'Bearer TOKEN');
   assert.equal(f.chamadas[0].headers.Version, 'v3');
@@ -68,15 +69,50 @@ test('lerContacto recusa um contacto de outra location', async () => {
   await assert.rejects(lerContacto(cliente(f), 'c1'), /nao da L1/);
 });
 
-test('procurarPorTelefone codifica o + e rele por id (o duplicate e slim)', async () => {
-  const f = fetchFalso([
-    resposta(200, { contact: { id: 'c1' } }),
-    resposta(200, { contact: { id: 'c1', locationId: 'L1', dnd: false, dndSettings: { SMS: { status: 'active' }, Email: { status: 'inactive' } } } }),
-  ]);
+// Medido 2026-10-15: o duplicate e "slim", e a leitura por id omite
+// dnd/dndSettings quando nunca foram definidos; a pesquisa devolve-os sempre.
+const SO_POR_ID = { contact: { id: 'c1', locationId: 'L1', tags: ['a'] } };
+const PESQUISA = { contacts: [{ id: 'c1', dnd: false, dndSettings: { SMS: { status: 'active' }, Email: { status: 'inactive' } } }] };
+
+test('procurarPorTelefone codifica o +, rele por id e vai buscar o DND a pesquisa', async () => {
+  const f = fetchFalso([resposta(200, { contact: { id: 'c1' } }), resposta(200, SO_POR_ID), resposta(200, PESQUISA)]);
   const c = await procurarPorTelefone(cliente(f), '+351900000000');
-  assert.equal(f.chamadas.length, 2);
+  assert.equal(f.chamadas.length, 3);
   assert.match(f.chamadas[0].url, /number=%2B351900000000/);
   assert.deepEqual(dndPorCanal(c), { desconhecido: false, dndBooleano: false, canais: { SMS: true, Email: false } });
+});
+
+test('lerContacto junta o DND da pesquisa — uma leitura, mesmo sem --executar', async () => {
+  const f = fetchFalso([resposta(200, SO_POR_ID), resposta(200, PESQUISA)]);
+  const c = await lerContacto(cliente(f), 'c1');
+  assert.deepEqual(c.tags, ['a']);
+  assert.equal(c.dnd, false);
+  const pesquisa = f.chamadas[1];
+  assert.equal(pesquisa.method, 'POST');
+  assert.match(pesquisa.url, /\/contacts\/search$/);
+  assert.equal(pesquisa.headers.Version, '2021-07-28');
+  assert.deepEqual(JSON.parse(pesquisa.body).filters, [{ field: 'id', operator: 'eq', value: 'c1' }]);
+});
+
+test('lerContacto nao pesquisa quando a leitura por id ja traz DND, nem com comDnd:false', async () => {
+  const comDnd = fetchFalso([resposta(200, { contact: { id: 'c1', locationId: 'L1', dnd: true } })]);
+  assert.equal((await lerContacto(cliente(comDnd), 'c1')).dnd, true);
+  assert.equal(comDnd.chamadas.length, 1);
+  const semDnd = fetchFalso([resposta(200, SO_POR_ID)]);
+  assert.equal(dndPorCanal(await lerContacto(cliente(semDnd), 'c1', { comDnd: false })).desconhecido, true);
+  assert.equal(semDnd.chamadas.length, 1);
+});
+
+test('se a pesquisa do DND falhar, o contacto fica desconhecido (e bloqueia)', async () => {
+  const f = fetchFalso([resposta(200, SO_POR_ID), resposta(422, { message: ['property filters should not exist'] })]);
+  const c = await lerContacto(cliente(f), 'c1');
+  assert.deepEqual(c.tags, ['a']);
+  assert.equal(dndPorCanal(c).desconhecido, true);
+});
+
+test('lerDnd devolve null quando a pesquisa nao encontra o contacto', async () => {
+  const f = fetchFalso([resposta(200, { contacts: [{ id: 'outro', dnd: true }] })]);
+  assert.equal(await lerDnd(cliente(f), 'c1'), null);
 });
 
 test('procurarPorTelefone sem resultado devolve null', async () => {

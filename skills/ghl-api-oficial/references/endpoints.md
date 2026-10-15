@@ -8,10 +8,11 @@ plataforma mudar, medir outra vez e corrigir com a data.
 
 | Endpoint | Notas medidas |
 |---|---|
-| `GET /contacts/{id}` | **sem** filtro `locationId` — o endpoint não aceita o parâmetro (422). Conferir o `locationId` da resposta, ou um contacto de outra sub-conta passa por nosso |
-| `GET /contacts/search/duplicate?locationId&number` | lookup canónico por telefone. O `+` tem de ir percent-encoded (passar por parâmetros de query, nunca colar no URL). Devolve um contacto "slim", sem `dnd`/`dndSettings` |
+| `GET /contacts/{id}` | **sem** filtro por location: ignora um `?locationId=` e devolve o contacto mesmo com outra location no parâmetro (medido 2026-10-15; uma medição anterior deu 422). Conferir o `locationId` da resposta, ou um contacto de outra sub-conta passa por nosso. ⚠️ **Omite `dnd` e `dndSettings` quando nunca foram definidos** (medido 2026-10-15, em `v3`, `2023-02-21`, `2021-07-28` e `2021-04-15`: numa amostra, todos os contactos sem DND vieram sem os campos; todos os que tinham DND de chamada activo trouxeram-nos; e o `dnd` pode faltar mesmo havendo canais registados). Sem os campos não se distingue "sem DND" de "desconhecido" — confirmar pela pesquisa |
+| `GET /contacts/search/duplicate?locationId&number` | lookup canónico por telefone; devolve `{contact, matchingField}` com um contacto "slim", sem `dnd`/`dndSettings`. Codificar o `+` (passar por parâmetros de query): a 2026-10-15 o `+` por codificar também encontrou, mas numa query um `+` é, por norma, um espaço |
 | `POST /contacts/upsert` | o caminho de escrita (idempotente: converge pelo telefone/email). Com duplicados bloqueados na location, `POST /contacts/` dá **400** — num caso real, um cenário Make engoliu esse 400 e ~40% das linhas ficaram presas como "processadas" (2026-08) |
-| `POST /contacts/search` | é uma leitura (apesar do POST). A gramática do corpo não está bem documentada — preferir `search/duplicate` por telefone |
+| `POST /contacts/search` | uma **leitura** (apesar do POST). Aceita `{locationId, page, pageLimit, filters:[{field, operator, value}]}` — ex.: `{field:"id", operator:"eq", value:<id>}` ou `field:"phone"` — e também `query` (medido 2026-10-15 com `Version: 2021-07-28`). **É o caminho para ler o DND de um contacto**: devolve `dnd` + `dndSettings`. No kit: `lerDnd()` |
+| `GET /contacts/?locationId&query=` | listagem (marcada como obsoleta na documentação, mas responde a 2026-10-15): traz `dnd` + `dndSettings`; por telefone, a `query` precisa do `+` (sem ele, 0 resultados). Aceita `limit`; um parâmetro desconhecido (ex.: `skip`) dá 422 |
 | `POST/DELETE /contacts/{id}/tags` | corpo `{tags:[...]}` com **nomes**, nunca ids |
 | `POST /contacts/{id}/notes` | sem `locationId` no corpo — o token faz o âmbito |
 | `PUT /contacts/{id}` | DND escreve-se em `dndSettings` por canal, nunca só no booleano `dnd` |
@@ -29,15 +30,18 @@ um teste conservador de nome de pessoa, ou usar `companyName` quando estiver
 preenchido.
 
 **DND:** ler o booleano **e** `dndSettings` por canal (`status:"active"` =
-DND ligado). Um payload sem nenhum dos dois é desconhecido — e desconhecido
-**bloqueia** o envio. O booleano `dnd` reverte-se sozinho (ver `ghl-canais`).
+DND ligado) — de preferência **pela pesquisa** (`POST /contacts/search`): o
+`search/duplicate` nunca os traz, e a leitura por id omite-os quando nunca
+foram definidos (2026-10-15). Um contacto
+sem nenhum dos dois é desconhecido — e desconhecido **bloqueia** o envio. O
+booleano `dnd` reverte-se sozinho (ver `ghl-canais`).
 
 ## Calendários e marcações
 
 | Endpoint | Notas medidas |
 |---|---|
 | `GET /calendars/{id}/free-slots` | `startDate`/`endDate` em **epoch ms** + `timezone` IANA explícita (sem ela as fronteiras do dia podem deslocar-se 1 h durante metade do ano). Janela máx. **31 dias**. Devolve um mapa por data + um `traceId` intruso no meio das datas. Lista slots: **nunca** responde sim/não a uma hora concreta |
-| `GET /calendars/events` | `startTime`/`endTime` em **ms** (em segundos devolve uma janela em ~1970 = lista vazia que parece "sem marcações"). O início é respeitado **à granularidade do dia**, não do instante — filtrar outra vez do lado de cá |
+| `GET /calendars/events` | `startTime`/`endTime` em **ms** (em segundos devolve uma janela em ~1970 = lista vazia que parece "sem marcações" — reconfirmado 2026-10-15). O início é respeitado **à granularidade do dia**, não do instante — filtrar outra vez do lado de cá |
 | `GET /calendars/events/appointments/{id}` | ⚠️ depois de um DELETE **continua a devolver o evento** (medido 2026-08-20). A prova de apagado é o `free-slots` voltar a oferecer a hora |
 | `POST /calendars/events/appointments` | `startTime` ISO **com offset, nunca `Z`** (na inscrição em workflow dá 422; noutros sítios aterra na hora errada). `appointmentStatus:"confirmed"`, `toNotify`. **Sem chave de idempotência** — reconfirmar o slot antes, nunca repetir |
 | `PUT /calendars/events/appointments/{id}` | remarcar `{startTime}` ou cancelar `{appointmentStatus:"cancelled"}` (`{status:"cancelled"}` é ignorado). 200 ≠ prova — conferir o evento devolvido |
@@ -48,7 +52,8 @@ DND ligado). Um payload sem nenhum dos dois é desconhecido — e desconhecido
   eventos estavam `cancelled`, `noshow` ou `invalid` — "tem evento" ≠ "tem
   reunião".
 - ⚠️ O endpoint devolve **as duas** grafias `appointmentStatus` e
-  `appoinmentStatus` (sic) — ler a correcta, com recurso à que tem o erro.
+  `appoinmentStatus` (sic) em todos os eventos (reconfirmado 2026-10-15) — ler
+  a correcta, com recurso à que tem o erro.
 - Um evento no GHL **não prova o convite do Google**: num calendário com
   `google_conference`, o link Meet é gerado pela integração Google da conta.
 - Criar calendários/grupos (`POST /calendars`) existe na v2 mas não foi
@@ -59,7 +64,7 @@ DND ligado). Um payload sem nenhum dos dois é desconhecido — e desconhecido
 | Endpoint | Notas medidas |
 |---|---|
 | `GET /opportunities/pipelines?locationId` | pipelines + stages |
-| `GET /opportunities/search` | parâmetros `location_id`, `contact_id`, `pipeline_id` em **snake_case** — o único endpoint com esta convenção; camelCase dá 422. Paginação: `meta.nextPage` + `startAfter`/`startAfterId` |
+| `GET /opportunities/search` | parâmetros `location_id`, `contact_id`, `pipeline_id` em **snake_case** — o único endpoint com esta convenção; camelCase dá 422 (reconfirmado 2026-10-15: `"property locationId should not exist"`). Paginação: `meta.nextPage` + `startAfter`/`startAfterId` |
 | `POST /opportunities/upsert` | o schema publicado omite `contactId` e marca `followers*` como obrigatórios — erros de documentação: enviar `contactId`, não enviar followers |
 | `PUT /opportunities/{id}` | mover de stage: enviar o `pipelineId` **dono do stage** + `pipelineStageId` |
 
@@ -91,8 +96,9 @@ escrever no dono. No kit: `ghl-pipelines.mjs --stage=<id>`.
 ## Tags, campos, locations, users, workflows
 
 - `GET/POST /locations/{id}/tags` — criar tag por nome (o GHL põe em
-  minúsculas; comparar sempre em minúsculas). Paginação `limit`/`offset` pode
-  dar 422 — cair para a chamada sem parâmetros.
+  minúsculas; comparar sempre em minúsculas). A 2026-10-15 a listagem ignorou
+  `limit`/`offset`/`skip` e devolveu todas as tags (uma medição anterior deu
+  422 com paginação) — não contar com paginação aqui.
 - `GET /locations/{id}/customFields` — catálogo completo (centenas de campos
   numa location madura). Guardar em cache: muda raramente. `fieldKey` resolve
   com e sem o prefixo `contact.`/`opportunity.`.
@@ -101,7 +107,9 @@ escrever no dono. No kit: `ghl-pipelines.mjs --stage=<id>`.
 - Custom values da location: **não** estão na API oficial (ver `ghl-mapa`).
 - `GET /locations/{id}` — nome legível da sub-conta.
 - `GET /users` — só leitura; convidar utilizadores é UI.
-- `GET /workflows` — **só metadados** (7 campos). A definição não existe aqui.
+- `GET /workflows` — **só metadados** (7 campos: `id, name, status, version,
+  locationId, createdAt, updatedAt` — reconfirmado 2026-10-15). A definição não
+  existe aqui.
 - OAuth de agência: `GET /oauth/installedLocations?companyId&appId&limit&skip`
   e `POST /oauth/locationToken` — um token de empresa só serve para isto; o
   `user_type` na troca tem de bater com a forma de instalação.
