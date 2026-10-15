@@ -1,0 +1,5 @@
+# Fins de linha LF no repositorio: o frontmatter dos SKILL.md e os scripts
+# com shebang partem-se em algumas ferramentas quando chegam com CRLF.
+* text=auto eol=lf
+*.png binary
+*.jpg binary

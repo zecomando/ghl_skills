@@ -1,0 +1,14 @@
+{
+  "name": "ghl-skills",
+  "description": "Skills para trabalhar o GoHighLevel (GHL) com agentes de IA: API oficial, MCP oficial, API interna, scripts, Make, canais e browser/computer use.",
+  "owner": {
+    "name": "zecomando"
+  },
+  "plugins": [
+    {
+      "name": "ghl-skills",
+      "source": ".",
+      "description": "10 skills GoHighLevel em português, com um kit de scripts Node sem dependências."
+    }
+  ]
+}

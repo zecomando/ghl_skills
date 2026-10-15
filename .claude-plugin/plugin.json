@@ -1,0 +1,11 @@
+{
+  "name": "ghl-skills",
+  "description": "Skills para trabalhar o GoHighLevel (GHL) com agentes de IA: API oficial, MCP oficial, API interna, scripts, Make, canais e browser/computer use.",
+  "author": {
+    "name": "zecomando"
+  },
+  "homepage": "https://github.com/zecomando/ghl_skills",
+  "repository": "https://github.com/zecomando/ghl_skills",
+  "license": "MIT",
+  "keywords": ["gohighlevel", "ghl", "highlevel", "leadconnector", "crm", "skills"]
+}

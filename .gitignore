@@ -1,0 +1,18 @@
+# Segredos — nunca versionar
+.env
+.env.*
+!.env.example
+.ghl-token.json
+*.har
+
+# Exports do GHL e do Make trazem tokens vivos em texto limpo
+# (Bearer de terceiros e access tokens Meta embutidos nos passos de webhook)
+ghl-export/
+make-export/
+backup/
+
+# Ferramentas e sistema
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
